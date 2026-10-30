@@ -8,7 +8,12 @@ Security fixes go into the latest release. Upgrade to it before you report an is
 
 Do not report security vulnerabilities in public GitHub issues, discussions or pull requests.
 
-Report them privately through GitHub: open the **Security** tab of this repository and choose **Report a vulnerability**. Include:
+Report them privately, in either of these ways:
+
+- email **support@cnvrg.si** with the subject starting `[SECURITY]`;
+- or, where it is available, open the **Security** tab of this repository and choose **Report a vulnerability**.
+
+Include:
 
 - the SDK version and runtime version you used;
 - a description of the issue and its impact;
