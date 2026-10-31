@@ -12,10 +12,12 @@ export interface ActionOptions {
 
 export type Parameters = Record<string, unknown>;
 
-export interface ActionResult {
-  validation: unknown;
-  edits: unknown;
-}
+/** An applied (or validated) action, or one that waits for a human: the server then answers
+ * 202 with the approval's id, and nothing has changed yet. */
+export type ActionResult =
+  | { status?: never; validation: unknown; edits: unknown }
+  | { status: "pending_approval"; approval_id: string; action: string; requested_by: string; decisionResult?: unknown;
+      validation?: never; edits?: never };
 
 /** Apply an action: `await action({ order_id: "o1" }, { mode: "VALIDATE_ONLY" })`. */
 export function action(o: Ontology, apiName: string) {
@@ -26,6 +28,10 @@ export function action(o: Ontology, apiName: string) {
     if (options.returnEdits) opts.returnEdits = options.returnEdits;
     if (Object.keys(opts).length) body.options = opts;
     const r = (await o.request("POST", "/actions/" + quote(apiName) + "/apply", body)) ?? {};
+    if (r.status === "pending_approval") {
+      return { status: r.status, approval_id: r.approval_id, action: r.action, requested_by: r.requested_by,
+               ...(r.decisionResult !== undefined ? { decisionResult: r.decisionResult } : {}) };
+    }
     return { validation: r.validation, edits: r.edits };
   };
 }
