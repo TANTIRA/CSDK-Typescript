@@ -1,0 +1,19 @@
+{
+  "name": "@convergehq/sdk",
+  "version": "0.1.0",
+  "description": "Converge SDK: the Converge platform's REST API from TypeScript and JavaScript, with no dependencies.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/TANTIRA/CSDK-Typescript.git" },
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "NOTICE"],
+  "sideEffects": false,
+  "engines": { "node": ">=20.16" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/"
+  },
+  "devDependencies": { "typescript": "5.9.3" },
+  "publishConfig": { "access": "public", "provenance": true }
+}
