@@ -128,3 +128,29 @@ test("actions, batch actions, queries and attachments", async () => {
     await s.close();
   }
 });
+
+test("media: read content, metadata and reference; upload as octet-stream", async () => {
+  const REF = { mimeType: "image/png", reference: { type: "mediaSetViewItem", mediaSetViewItem: { mediaItemRid: "ri.mesta.main.media-item.1" } } };
+  const s = await stub({
+    [`GET ${O}/objects/Order/order%2Fo%201`]: ok({ $rid: "order/o 1", photo: JSON.stringify(REF) }),  // JSON text is parsed
+    [`GET ${O}/objects/Order/order%2Fo%201/media/photo/content`]: ok("\x89PNG"),
+    [`GET ${O}/objects/Order/order%2Fo%201/media/photo/metadata`]: ok({ path: "a.png", sizeBytes: 4, mediaType: "image/png" }),
+    [`POST ${O}/objectTypes/Order/media/photo/upload`]: ok(REF),
+  });
+  try {
+    const o = new ConvergeClient({ hostname: s.base, token: "t" }).ontology("my onto");
+    const photo = await o.media.get("Order", "o 1", "photo");
+    assert.deepEqual(photo.reference, REF);
+    assert.equal((await photo.fetchContents()).length, 5);  // "\x89" is two bytes in UTF-8
+    assert.deepEqual(await photo.fetchMetadata(), { path: "a.png", sizeBytes: 4, mediaType: "image/png" });
+    assert.deepEqual(await o.media.upload("Order", "photo", new TextEncoder().encode("abc"), { mediaItemPath: "dir/a b.png" }), REF);
+    await assert.rejects(o.media.upload("Order", "photo", "not bytes"), TypeError);
+    const up = s.seen.find((r) => r.path.endsWith("/upload"));
+    assert.equal(up.query, "?mediaItemPath=dir%2Fa+b.png");
+    assert.equal(up.headers["content-type"], "application/octet-stream");
+    assert.equal(up.raw.toString(), "abc");
+    assert.ok(s.seen.every((r) => r.headers.authorization === "Bearer t"));
+  } finally {
+    await s.close();
+  }
+});

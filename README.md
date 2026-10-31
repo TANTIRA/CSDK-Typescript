@@ -87,13 +87,29 @@ Filters use the object form:
 
 On one object type, `$or` is a union, `$and` an intersection, and `{ $and: [a, { $not: b }] }` subtracts `b` from `a`. Pages hold 1 to 1000 objects; use `fetchPage`, `asyncIter` or `take`.
 
+### Media properties
+
+A media reference property names an item in a media set:
+
+```ts
+const photo = await o.media.get("Order", "o1", "photo");
+const bytes = await photo.fetchContents();      // Uint8Array
+const meta = await photo.fetchMetadata();       // { path, sizeBytes, mediaType }
+photo.reference;                                // the MediaReference the property holds
+
+const ref = await o.media.upload("Order", "photo", pngBytes, { mediaItemPath: "orders/o9.png" });
+await o.action("set_photo")({ order_id: "o9", photo: ref });   // an action writes it to the property
+```
+
+The server checks the object and the media set before it answers. The content is untrusted: never render it inline in a page served from the API's origin (for example as an `<img>` or `<iframe>` src on that origin).
+
 ## Generated ontology packages
 
 Your platform also generates a typed TypeScript package per ontology (`@convergehq/osdk-<ontology>`), with types for your object types, actions and queries. That package is self-contained today; it does not depend on this one.
 
 ## Not available yet
 
-These are not available yet: dataset views, projections, retention policies, Iceberg tables, set operations across object types, media properties, and the SQL job list. The SDK only calls routes the server has today.
+These are not available yet: dataset views, projections, retention policies, Iceberg tables, set operations across object types, and the SQL job list. The SDK only calls routes the server has today.
 
 ## License
 

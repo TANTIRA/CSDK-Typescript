@@ -1,0 +1,1 @@
+- Media reference properties: `ontology.media.get(objectType, primaryKey, property)` gives a `Media` with `fetchContents()`, `fetchMetadata()` and `reference`; `ontology.media.upload(...)` returns the MediaReference an action writes.
