@@ -110,11 +110,13 @@ export class ConvergeClient {
 export { UserTokenAuth, type TokenProvider } from "./core/auth.js";
 export { resolve, parseConfig } from "./core/config.js";
 export { ConfigError, ConvergeError, ConvergeRPCError } from "./core/errors.js";
+export { createConfidentialOauthClient, createPublicOauthClient, type OauthOptions, type OauthTokenProvider } from "./core/oauth.js";
 export { Transport, checkBase, type FetchLike, type TransportOptions } from "./core/transport.js";
 export { DatasetsClient, SqlClient, SqlError, Transaction, type ReadTableOptions, type TransactionType } from "./datasets/client.js";
 export { parseCsv, csvRecords } from "./datasets/csv.js";
 export { ActionMode, ReturnEditsMode, type ActionOptions, type ActionResult, type Parameters } from "./ontologies/actions.js";
 export { Attachments } from "./ontologies/attachments.js";
+export { geoPoint, geoShape, type GeoJsonGeometry, type GeoJsonPoint, type Position } from "./ontologies/geo.js";
 export { Media, MediaClient, mediaReference, type MediaMetadata, type MediaReference } from "./ontologies/media.js";
 export {
   LinkedObjects, ObjectSet, Ontology, type AggregationType, type DurationUnit, type FetchPageOptions, type GroupBy, type Metric,

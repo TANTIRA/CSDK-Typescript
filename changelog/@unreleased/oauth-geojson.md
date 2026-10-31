@@ -1,0 +1,3 @@
+- OAuth helpers: `createPublicOauthClient` (PKCE) and `createConfidentialOauthClient` (client credentials, refused in a browser) against the converge realm.
+- `geoPoint` / `geoShape`: geo property values as GeoJSON.
+- An action that needs approval returns `{ status: "pending_approval", approval_id, ... }` instead of empty validation and edits.

@@ -47,6 +47,24 @@ const client = new ConvergeClient();   // from the environment or ~/.converge/co
 
 Pass `auth: () => getFreshToken()` instead of `token` to fetch a token per request.
 
+### OAuth
+
+Two helpers sign in against your platform's Keycloak (realm `converge`, found at `<origin>/kc/realms/converge/.well-known/openid-configuration`), like `@osdk/oauth`. Each returns a token function to pass as `auth`:
+
+```ts
+import { ConvergeClient, createConfidentialOauthClient, createPublicOauthClient } from "@convergehq/sdk";
+
+// a server or script: the client credentials grant
+const auth = createConfidentialOauthClient("my-service", process.env.CLIENT_SECRET!, "https://converge.example.com/api");
+// a browser app: authorization code with PKCE
+// const auth = createPublicOauthClient("my-app", "https://converge.example.com/api", "https://my-app.example/callback");
+const client = new ConvergeClient({ hostname: "https://converge.example.com/api", auth });
+```
+
+- `createPublicOauthClient` sends the page to the sign-in page on the first request without a token. Back on the redirect URL, it exchanges the code, checks `state`, and removes the code from the address bar. Later requests use the refresh token. Tokens stay in memory. Pass `{ storage: "sessionStorage" }` to keep the refresh token across reloads of the tab. `auth.signIn()`, `auth.signOut()` and `auth.refresh()` are there for your own buttons.
+- `createConfidentialOauthClient` caches its token until shortly before it expires. Never put a client secret in a browser bundle. The helper throws when it runs in a browser.
+- The client id must be a client of the realm that the API accepts: an administrator adds it to `OIDC_ALLOWED_CLIENTS`. Neither helper logs tokens, and a token endpoint error carries only `error` and `error_description`.
+
 ## Datasets
 
 ```ts
@@ -86,6 +104,10 @@ Filters use the object form:
 - Combine filters with `$and`, `$or` and `$not`.
 
 On one object type, `$or` is a union, `$and` an intersection, and `{ $and: [a, { $not: b }] }` subtracts `b` from `a`. Pages hold 1 to 1000 objects; use `fetchPage`, `asyncIter` or `take`. `aggregate(type, { field, groupBy })` computes one metric, and `aggregateMetrics([{ type, field?, name? }, ...], { groupBy, order })` several, ordering the groups by one. A `groupBy` entry can be a time bucket `{ field, duration, unit }` (UTC; weeks start on Monday) or `{ field, maxGroupCount }`, which keeps the largest groups and marks the answer `APPROXIMATE`. `nearestNeighbors(embedding, 10, "embedding")` returns the objects whose vector property is closest to `embedding` (exact cosine similarity, as `$score`, best first) among those you may read, with the set's filter applied.
+
+An action that needs approval does not run yet: it returns `{ status: "pending_approval", approval_id, action, requested_by }` instead of `validation` and `edits`.
+
+Geopoint and geoshape properties come back as the server stores them (`"lat,lon"` text or GeoJSON). `geoPoint(value)` and `geoShape(value)` turn them into GeoJSON (`{ type: "Point", coordinates: [lon, lat] }`), or `undefined`. In `where`, pass the stored text.
 
 ### Media properties
 
