@@ -62,8 +62,9 @@ async function grant(f: FetchLike, url: string, body: Record<string, string>, ba
   }
   const life = Number.isFinite(Number(d.expires_in)) && Number(d.expires_in) > 0 ? Number(d.expires_in) : 0;
   return { access: d.access_token, refresh: typeof d.refresh_token === "string" ? d.refresh_token : undefined,
-           // renewed 30 s early (a short-lived token at half its life), so it never expires in flight
-           until: Date.now() + (life > 60 ? life - 30 : life / 2) * 1000 };
+           // renewed 30 s early (a short-lived token at half its life), so it never expires in flight;
+           // a server that names no lifetime gets 60 s
+           until: Date.now() + (d.expires_in === undefined ? 60 : life > 60 ? life - 30 : life / 2) * 1000 };
 }
 
 const b64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -89,12 +90,16 @@ export function createPublicOauthClient(clientId: string, baseUrl: string, redir
   let ends: Promise<OidcEndpoints> | undefined;
   const endpoints = () => (ends ??= discover(baseUrl, opts).catch((e) => { ends = undefined; throw e; }));
   const key = `osdk-oauth:${clientId}`;
-  const keep = opts.storage === "sessionStorage" ? sessionStorage : undefined;
+  // built during SSR or in Node: no page, so nothing to read until it runs in a browser
+  const browser = typeof location !== "undefined" && typeof sessionStorage !== "undefined";
+  const keep = browser && opts.storage === "sessionStorage" ? sessionStorage : undefined;
   let token: { access: string; until: number } | undefined;
   let refreshToken = keep?.getItem(`${key}:refresh`) ?? undefined;
+  // bumped by signOut, so a grant that was in flight cannot bring the session back
+  let generation = 0;
   // back from the sign-in page: take the single-use code out of the address bar and history at once
   let landing: { code: string | null; state: string | null; error: string | null; pkce: string } | undefined;
-  {
+  if (browser) {
     const here = new URL(location.href), back = new URL(redirectUrl, location.href);
     const pkce = sessionStorage.getItem(`${key}:pkce`);
     if (pkce && here.origin + here.pathname === back.origin + back.pathname
@@ -106,7 +111,8 @@ export function createPublicOauthClient(clientId: string, baseUrl: string, redir
       history.replaceState(history.state, "", here.href);
     }
   }
-  const take = (g: Awaited<ReturnType<typeof grant>>) => {
+  const take = (g: Awaited<ReturnType<typeof grant>>, started: number) => {
+    if (started !== generation) throw new ConfigError("signed out while the token was requested");
     token = g;
     if (g.refresh) {
       refreshToken = g.refresh;
@@ -129,14 +135,17 @@ export function createPublicOauthClient(clientId: string, baseUrl: string, redir
   let refreshing: Promise<string | undefined> | undefined;
   // one refresh at a time: Keycloak rotates refresh tokens, so a second use of the same one fails
   const refresh = () => (refreshing ??= (async () => {
-    const sent = refreshToken;
+    const sent = refreshToken, started = generation;
     if (!sent) return undefined;
+    const url = (await endpoints()).token_endpoint;  // a discovery failure is no verdict on the token
     try {
-      return take(await grant(f, (await endpoints()).token_endpoint,
-                              { grant_type: "refresh_token", client_id: clientId, refresh_token: sent }));
+      return take(await grant(f, url, { grant_type: "refresh_token", client_id: clientId, refresh_token: sent }), started);
     } catch (e) {
-      // expired or revoked; a 5xx or a network error keeps the session for the next try
-      if (!(e instanceof ConvergeRPCError && e.status >= 400 && e.status < 500)) throw e;
+      // only the token endpoint refusing this token ends the session; a 429, a 5xx or a network
+      // error keeps it for the next try
+      const refused = e instanceof ConvergeRPCError && (e.status === 400 || e.status === 401
+        || (e.body as { error?: unknown } | null)?.error === "invalid_grant");
+      if (!refused) throw e;
       if (refreshToken === sent) {
         refreshToken = undefined;
         keep?.removeItem(`${key}:refresh`);
@@ -152,8 +161,9 @@ export function createPublicOauthClient(clientId: string, baseUrl: string, redir
       const { verifier, state } = JSON.parse(pkce) as { verifier: string; state: string };
       if (got !== state) throw new ConfigError("OAuth state does not match this sign-in");
       if (error || !code) throw new ConvergeRPCError(400, { error });
+      const started = generation;
       return take(await grant(f, (await endpoints()).token_endpoint, {
-        grant_type: "authorization_code", client_id: clientId, code, redirect_uri: redirectUrl, code_verifier: verifier }));
+        grant_type: "authorization_code", client_id: clientId, code, redirect_uri: redirectUrl, code_verifier: verifier }), started);
     }
     const fresh = await refresh();
     if (fresh) return fresh;
@@ -163,6 +173,7 @@ export function createPublicOauthClient(clientId: string, baseUrl: string, redir
   return provider(get, {
     signIn, refresh,
     async signOut() {
+      generation++;
       token = refreshToken = undefined;
       keep?.removeItem(`${key}:refresh`);
       const end = (await endpoints()).end_session_endpoint;
@@ -190,17 +201,21 @@ export function createConfidentialOauthClient(clientId: string, clientSecret: st
   const o = { ...opts, fetch: fetchFn ?? opts.fetch };
   let ends: Promise<OidcEndpoints> | undefined;
   let token: { access: string; until: number } | undefined;
+  let generation = 0;
   // RFC 6749 2.3.1: id and secret form-encoded, then HTTP Basic
   const basic = btoa(`${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`);
   const refresh = async () => {
+    const started = generation;
     const url = (await (ends ??= discover(baseUrl, o).catch((e) => { ends = undefined; throw e; }))).token_endpoint;
-    token = await grant(o.fetch ?? globalThis.fetch, url, { grant_type: "client_credentials",
-                                                            ...(scopes?.length ? { scope: scopes.join(" ") } : {}) }, basic);
-    return token.access;
+    const g = await grant(o.fetch ?? globalThis.fetch, url, { grant_type: "client_credentials",
+                                                              ...(scopes?.length ? { scope: scopes.join(" ") } : {}) }, basic);
+    if (started !== generation) throw new ConfigError("signed out while the token was requested");
+    token = g;
+    return g.access;
   };
   return provider(async () => (token && token.until > Date.now() ? token.access : await refresh()), {
     refresh,
     async signIn() { await refresh(); },
-    async signOut() { token = undefined; },
+    async signOut() { generation++; token = undefined; },
   });
 }

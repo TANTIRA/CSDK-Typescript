@@ -176,3 +176,54 @@ test("geo values are validated", () => {
   assert.deepEqual(geoShape({ type: "GeometryCollection", geometries: [{ type: "Point", coordinates: [1, 2] }] }),
                    { type: "GeometryCollection", geometries: [{ type: "Point", coordinates: [1, 2] }] });
 });
+
+test("the public client can be built in Node (SSR) without a page", () => {
+  assert.equal(typeof globalThis.location, "undefined");
+  assert.equal(typeof createPublicOauthClient("app", "https://h.example", "https://app.example/cb", { storage: "sessionStorage" }),
+               "function");
+});
+
+test("discovery failures and 429s keep the session; a sign-out during a refresh stays signed out; no expires_in caches", async () => {
+  let live = "rt-0", issued = 0, noDiscovery = false, limited = false, slow = false, grants = 0;
+  const fetch = async (input, init) => {
+    if (String(input).endsWith("/openid-configuration")) {
+      return noDiscovery ? Response.json({}, { status: 404 })
+        : Response.json({ issuer: kc, authorization_endpoint: `${kc}/a`, token_endpoint: `${kc}/t` });
+    }
+    const form = new URLSearchParams(String(init?.body));
+    if (form.get("grant_type") === "client_credentials") return Response.json({ access_token: `cc-${++grants}` });
+    if (limited) return Response.json({ error: "slow_down" }, { status: 429 });
+    if (slow) await new Promise((r) => setTimeout(r, 20));
+    if (form.get("refresh_token") !== live) return Response.json({ error: "invalid_grant" }, { status: 400 });
+    live = `rt-${++issued}`;
+    return Response.json({ access_token: `at-${issued}`, expires_in: 0, refresh_token: live });
+  };
+  const store = new Map([["osdk-oauth:app:refresh", live]]);
+  Object.assign(globalThis, {
+    location: { href: "https://app.example/cb", assign() {} },
+    history: { state: null, replaceState() {} },
+    sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) },
+  });
+  try {
+    const pub = createPublicOauthClient("app", "https://h.example", "https://app.example/cb", { fetch, storage: "sessionStorage" });
+    noDiscovery = true;
+    await assert.rejects(pub.refresh(), (e) => e.status === 404);
+    noDiscovery = false;
+    limited = true;
+    await assert.rejects(pub.refresh(), (e) => e.status === 429);
+    limited = false;
+    assert.equal(store.get("osdk-oauth:app:refresh"), "rt-0");
+    slow = true;
+    const inflight = pub.refresh();
+    await pub.signOut();
+    await assert.rejects(inflight, /signed out while the token was requested/);
+    assert.equal(await pub.refresh(), undefined);
+    assert.equal(store.get("osdk-oauth:app:refresh"), undefined);
+  } finally {
+    for (const k of ["location", "history", "sessionStorage"]) delete globalThis[k];
+  }
+  const cc = createConfidentialOauthClient("svc", "s", "https://h.example", [], fetch);
+  await cc();
+  await cc();
+  assert.equal(grants, 1);
+});
