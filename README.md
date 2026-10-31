@@ -101,7 +101,7 @@ const ref = await o.media.upload("Order", "photo", pngBytes, { mediaItemPath: "o
 await o.action("set_photo")({ order_id: "o9", photo: ref });   // an action writes it to the property
 ```
 
-The server checks the object and the media set before it answers. The content is untrusted: never render it inline in a page served from the API's origin (for example as an `<img>` or `<iframe>` src on that origin).
+The server checks the object and the media set before it answers. The content is untrusted, because the uploader chose its type. Showing an image, video or audio in an `<img>`, `<video>` or `<audio>` element is fine; never open other content (HTML, SVG) as a `blob:` or `data:` URL in a frame, tab or link, where it would run on your app's origin.
 
 ## Generated ontology packages
 
