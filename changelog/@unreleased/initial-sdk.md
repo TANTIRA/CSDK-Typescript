@@ -1,0 +1,4 @@
+- First release, 0.1.0:
+  - `core`: configuration from options, the environment or `~/.converge/config`; bearer auth that never shows the token; a fetch transport that refuses redirects and plain-http hosts other than localhost.
+  - `datasets`: catalog, branches, schema, transactions, files, rows and SQL.
+  - `ontologies`: untyped objects, links, actions, queries, aggregations and attachments, with OSDK 2.x object-form filters including `$not` and `$isNull: false`.
