@@ -174,6 +174,15 @@ export class ObjectSet<T extends OntologyObject = OntologyObject> {
     return this.#o.request("POST", this.#path("/aggregate"), { aggregation: agg });
   }
 
+  /** The numNeighbors objects of this set whose vector property is closest to query (exact cosine
+   * similarity, best first): `{ data: [object + $score], skipped }`, skipped counting readable
+   * objects with no comparable vector. */
+  nearestNeighbors(query: number[], numNeighbors: number, property: string): Promise<any> {
+    const body: Record<string, unknown> = { property, numNeighbors, query: { type: "vector", value: [...query] } };
+    if (this.#filter) body.where = this.#filter;
+    return this.#o.request("POST", this.#path("/nearestNeighbors"), body);
+  }
+
   /** How many objects are in this set. */
   async count(): Promise<number> {
     const data = (await this.aggregate("count"))?.data ?? [];

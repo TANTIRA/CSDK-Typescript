@@ -1,0 +1,1 @@
+- `ObjectSet.nearestNeighbors(query, numNeighbors, property)`: exact cosine nearest neighbors over a vector property.

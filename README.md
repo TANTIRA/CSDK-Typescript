@@ -85,7 +85,7 @@ Filters use the object form:
 - `whereClause({ type, ... })` adds a clause already in the server's wire form.
 - Combine filters with `$and`, `$or` and `$not`.
 
-On one object type, `$or` is a union, `$and` an intersection, and `{ $and: [a, { $not: b }] }` subtracts `b` from `a`. Pages hold 1 to 1000 objects; use `fetchPage`, `asyncIter` or `take`. `aggregate(type, { field, groupBy })` computes one metric, and `aggregateMetrics([{ type, field?, name? }, ...], { groupBy, order })` several, ordering the groups by one. A `groupBy` entry can be a time bucket `{ field, duration, unit }` (UTC; weeks start on Monday) or `{ field, maxGroupCount }`, which keeps the largest groups and marks the answer `APPROXIMATE`.
+On one object type, `$or` is a union, `$and` an intersection, and `{ $and: [a, { $not: b }] }` subtracts `b` from `a`. Pages hold 1 to 1000 objects; use `fetchPage`, `asyncIter` or `take`. `aggregate(type, { field, groupBy })` computes one metric, and `aggregateMetrics([{ type, field?, name? }, ...], { groupBy, order })` several, ordering the groups by one. A `groupBy` entry can be a time bucket `{ field, duration, unit }` (UTC; weeks start on Monday) or `{ field, maxGroupCount }`, which keeps the largest groups and marks the answer `APPROXIMATE`. `nearestNeighbors(embedding, 10, "embedding")` returns the objects whose vector property is closest to `embedding` (exact cosine similarity, as `$score`, best first) among those you may read, with the set's filter applied.
 
 ### Media properties
 
