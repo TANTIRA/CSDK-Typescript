@@ -27,6 +27,11 @@ export interface PropertyFilter {
   $range?: [unknown, unknown];
   /** Matches the whole value; the server refuses ^ and $. */
   $regex?: string;
+  /** Text search: whole words, case-insensitive, terms separated by whitespace or punctuation. */
+  $containsAnyTerm?: string;
+  $containsAllTerms?: string;
+  /** The terms as an adjacent phrase, in order. */
+  $containsAllTermsInOrder?: string;
   $gt?: unknown;
   $gte?: unknown;
   $lt?: unknown;
@@ -43,7 +48,8 @@ export type Where = {
   $not?: Where;
 } & { [property: string]: unknown };
 
-const OPS = new Set(["$eq", "$gt", "$gte", "$lt", "$lte", "$isNull"]);
+const OPS = new Set(["$eq", "$gt", "$gte", "$lt", "$lte", "$isNull", "$containsAnyTerm", "$containsAllTerms",
+  "$containsAllTermsInOrder"]);
 
 /** Clauses ANDed, nested ANDs flattened; undefined = no filter. */
 export function andAll(cs: (WhereClause | undefined)[]): WhereClause | undefined {

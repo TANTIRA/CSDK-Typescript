@@ -1,0 +1,1 @@
+- Text search operators: `$containsAnyTerm`, `$containsAllTerms` and `$containsAllTermsInOrder`.

@@ -81,7 +81,7 @@ const att = await o.attachments.upload(pdfBytes, "invoice.pdf", "application/pdf
 
 Filters use the object form:
 - `{ property: value }` means equality, and `{ property: null }` means no value.
-- The operators are `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$range`, `$startsWith`, `$regex` and `$isNull` (`true` or `false`). `$ne` also matches objects with no value.
+- The operators are `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$range`, `$startsWith`, `$regex`, `$isNull` (`true` or `false`) and the text search operators `$containsAnyTerm`, `$containsAllTerms` and `$containsAllTermsInOrder` (whole words, case-insensitive). `$ne` also matches objects with no value.
 - `whereClause({ type, ... })` adds a clause already in the server's wire form.
 - Combine filters with `$and`, `$or` and `$not`.
 
