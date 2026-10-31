@@ -117,7 +117,7 @@ export { ActionMode, ReturnEditsMode, type ActionOptions, type ActionResult, typ
 export { Attachments } from "./ontologies/attachments.js";
 export { Media, MediaClient, mediaReference, type MediaMetadata, type MediaReference } from "./ontologies/media.js";
 export {
-  LinkedObjects, ObjectSet, Ontology, type AggregationType, type FetchPageOptions, type GroupBy,
+  LinkedObjects, ObjectSet, Ontology, type AggregationType, type DurationUnit, type FetchPageOptions, type GroupBy, type Metric,
   type OntologyObject, type OrderBy, type Page,
 } from "./ontologies/objects.js";
 export { andAll, not, orAll, toClause, type PropertyFilter, type Where, type WhereClause } from "./ontologies/where.js";
