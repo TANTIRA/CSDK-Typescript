@@ -40,6 +40,10 @@ test("where: $ne, $in, $range, $regex, nested $or and double $not (depth parity 
   assert.deepEqual(toClause({ $or: [{ a: 1 }] }), eq("a", 1));
   assert.deepEqual(toClause({ $not: { $not: { a: 1 } } }), eq("a", 1));
   assert.deepEqual(toClause({ $not: { a: { $ne: 1 } } }), eq("a", 1));
+  assert.deepEqual(toClause({ name: { $containsAnyTerm: "a b" }, note: { $containsAllTermsInOrder: "big red" } }),
+    { type: "and", conditions: [{ type: "containsAnyTerm", property: "name", value: "a b" },
+      { type: "containsAllTermsInOrder", property: "note", value: "big red" }] });
+  assert.equal(toClause({ n: { $containsAllTerms: "x" } }).type, "containsAllTerms");
 });
 
 test("whereClause ANDs in a raw server clause", async () => {
