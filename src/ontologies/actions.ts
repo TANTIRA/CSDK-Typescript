@@ -16,7 +16,8 @@ export type Parameters = Record<string, unknown>;
  * 202 with the approval's id, and nothing has changed yet. */
 export type ActionResult =
   | { status?: never; validation: unknown; edits: unknown }
-  | { status: "pending_approval"; approval_id: string; action: string; requested_by: string; decisionResult?: unknown };
+  | { status: "pending_approval"; approval_id: string; action: string; requested_by: string; decisionResult?: unknown;
+      validation?: never; edits?: never };
 
 /** Apply an action: `await action({ order_id: "o1" }, { mode: "VALIDATE_ONLY" })`. */
 export function action(o: Ontology, apiName: string) {

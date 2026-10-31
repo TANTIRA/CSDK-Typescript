@@ -63,6 +63,7 @@ const client = new ConvergeClient({ hostname: "https://converge.example.com/api"
 
 - `createPublicOauthClient` sends the page to the sign-in page on the first request without a token. Back on the redirect URL, it exchanges the code, checks `state`, and removes the code from the address bar. Later requests use the refresh token. Tokens stay in memory. Pass `{ storage: "sessionStorage" }` to keep the refresh token across reloads of the tab. `auth.signIn()`, `auth.signOut()` and `auth.refresh()` are there for your own buttons.
 - `createConfidentialOauthClient` caches its token until shortly before it expires. Never put a client secret in a browser bundle. The helper throws when it runs in a browser.
+- The OpenID configuration must name the issuer the helper asked, and its endpoints must be on the issuer's origin, so a tampered configuration cannot send a code or secret elsewhere. If your realm's issuer is not `<origin>/kc/realms/converge`, pass `{ issuer }`. Concurrent requests share one refresh, and only a 4xx from the token endpoint signs you out.
 - The client id must be a client of the realm that the API accepts: an administrator adds it to `OIDC_ALLOWED_CLIENTS`. Neither helper logs tokens, and a token endpoint error carries only `error` and `error_description`.
 
 ## Datasets

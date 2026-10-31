@@ -99,3 +99,80 @@ test("an action that needs approval keeps its approval id", async () => {
   assert.deepEqual(await c.ontology("o").action("refund")({ order: "o1" }),
                    { status: "pending_approval", approval_id: "a1", action: "refund", requested_by: "u1" });
 });
+
+test("discovery refuses another issuer or another origin, so the secret is never sent", async () => {
+  const good = { issuer: kc, authorization_endpoint: `${kc}/protocol/openid-connect/auth`,
+                 token_endpoint: `${kc}/protocol/openid-connect/token` };
+  for (const [config, why] of [[{ ...good, token_endpoint: "https://evil.example/token" }, /not on the issuer's origin/],
+                               [{ ...good, issuer: "https://evil.example" }, /another issuer/]]) {
+    const urls = [];
+    const fetch = async (u) => { urls.push(String(u)); return Response.json(config); };
+    await assert.rejects(createConfidentialOauthClient("svc", "TOP-SECRET", "https://h.example/api", [], fetch)(),
+                         (e) => why.test(String(e.body)));
+    assert.deepEqual(urls, [`${kc}/.well-known/openid-configuration`]);
+  }
+});
+
+test("refresh: one at a time with rotation, a 503 keeps the session, short tokens cached briefly", async () => {
+  let live = "rt-0", issued = 0, outage = false, refreshes = 0, grants = 0;
+  const fetch = async (input, init) => {
+    if (String(input).endsWith("/openid-configuration")) {
+      return Response.json({ issuer: kc, authorization_endpoint: `${kc}/a`, token_endpoint: `${kc}/t` });
+    }
+    const form = new URLSearchParams(String(init?.body));
+    if (outage) return new Response("down", { status: 503 });
+    if (form.get("grant_type") === "client_credentials") return Response.json({ access_token: `cc-${++grants}`, expires_in: 10 });
+    refreshes++;
+    if (form.get("refresh_token") !== live) return Response.json({ error: "invalid_grant" }, { status: 400 });
+    live = `rt-${++issued}`;
+    return Response.json({ access_token: `at-${issued}`, expires_in: 0, refresh_token: live });
+  };
+  const store = new Map([["osdk-oauth:app:refresh", live]]);
+  let href = "https://app.example/cb";
+  Object.assign(globalThis, {
+    location: { get href() { return href; }, assign() {} },
+    history: { state: null, replaceState(_d, _u, u) { href = u; } },
+    sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) },
+  });
+  try {
+    const pub = createPublicOauthClient("app", "https://h.example", "https://app.example/cb", { fetch, storage: "sessionStorage" });
+    const race = await Promise.all([pub(), pub.refresh(), pub.refresh()]);
+    assert.equal(refreshes, 1);
+    assert.equal(new Set(race).size, 1);
+    outage = true;
+    await assert.rejects(pub.refresh(), (e) => e.status === 503);
+    outage = false;
+    assert.equal(await pub.refresh(), `at-${issued}`);
+    assert.equal(store.get("osdk-oauth:app:refresh"), live);
+
+    // the code leaves the address bar as soon as the client is created
+    store.set("osdk-oauth:app:pkce", JSON.stringify({ verifier: "v", state: "s1" }));
+    href = "https://app.example/cb?code=c9&state=s1&keep=1";
+    createPublicOauthClient("app", "https://h.example", "https://app.example/cb", { fetch });
+    assert.equal(href, "https://app.example/cb?keep=1");
+  } finally {
+    for (const k of ["location", "history", "sessionStorage"]) delete globalThis[k];
+  }
+  const cc = createConfidentialOauthClient("svc", "s", "https://h.example", [], fetch);
+  await cc();
+  await cc();
+  assert.equal(grants, 1);  // 10 s to live: cached for 5 s, not stretched to 30 s
+});
+
+test("a web worker is a browser too", () => {
+  globalThis.importScripts = () => {};
+  try {
+    assert.throws(() => createConfidentialOauthClient("svc", "x", "https://h.example"), /server-side only/);
+  } finally {
+    delete globalThis.importScripts;
+  }
+});
+
+test("geo values are validated", () => {
+  for (const bad of ["0x10,0x20", "91,0", "1,181", "1e2,3", " ,1", "1,2,3"]) assert.equal(geoPoint(bad), undefined, bad);
+  assert.equal(geoPoint({ type: "Point", coordinates: [200, 0] }), undefined);
+  assert.equal(geoShape('{"type":"Polygon","coordinates":[[[0,0],[1,"x"]]]}'), undefined);
+  assert.equal(geoShape('{"type":"toString","coordinates":[]}'), undefined);
+  assert.deepEqual(geoShape({ type: "GeometryCollection", geometries: [{ type: "Point", coordinates: [1, 2] }] }),
+                   { type: "GeometryCollection", geometries: [{ type: "Point", coordinates: [1, 2] }] });
+});
