@@ -45,3 +45,7 @@ Only the owner of the npm organization `convergehq` does these steps. Nobody els
 3. Set the repository variable `NPM_TRUSTED_PUBLISHING` to `true` (*Settings → Secrets and variables → Actions → Variables*).
 
 From then on, pushing a `v*` tag tests, packs and publishes with provenance. Until the variable is set, the publish job is skipped rather than failed, and the build job still runs and keeps the tarball as an artifact. The workflow also refuses a tag that does not match the package version.
+
+## The Python SDK
+
+Its twin is `converge-sdk` on PyPI (TANTIRA/CSDK-Python), released the same way: a manual first upload, then trusted publishing. Keep the two in step: a behavior change in one goes into the other in the same release.

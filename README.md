@@ -6,7 +6,7 @@ It has three parts:
 
 - **core** holds configuration, authentication, the HTTP transport and errors.
 - **datasets** covers datasets (catalog, branches, schema, transactions, files, rows) and SQL.
-- **ontologies** covers objects, links, actions, queries, aggregations and attachments. They are untyped, by API name. A generated ontology package builds its typed client on this module.
+- **ontologies** covers objects, links, actions, queries, aggregations and attachments. They are untyped, by API name.
 
 ## Install
 
@@ -79,16 +79,17 @@ const value = await o.query("customer_lifetime_value")({ customer_rid: "customer
 const att = await o.attachments.upload(pdfBytes, "invoice.pdf", "application/pdf");
 ```
 
-Filters use the OSDK 2.x object form:
+Filters use the object form:
 - `{ property: value }` means equality, and `{ property: null }` means no value.
-- The operators are `$eq`, `$gt`, `$gte`, `$lt`, `$lte`, `$startsWith` and `$isNull` (`true` or `false`).
+- The operators are `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$range`, `$startsWith`, `$regex` and `$isNull` (`true` or `false`). `$ne` also matches objects with no value.
+- `whereClause({ type, ... })` adds a clause already in the server's wire form.
 - Combine filters with `$and`, `$or` and `$not`.
 
 On one object type, `$or` is a union, `$and` an intersection, and `{ $and: [a, { $not: b }] }` subtracts `b` from `a`. Pages hold 1 to 1000 objects; use `fetchPage`, `asyncIter` or `take`.
 
 ## Generated ontology packages
 
-Your platform generates a typed package per ontology, with types for your object types, actions and queries. That package depends on `@convergehq/sdk`.
+Your platform also generates a typed TypeScript package per ontology (`@convergehq/osdk-<ontology>`), with types for your object types, actions and queries. That package is self-contained today; it does not depend on this one.
 
 ## Not available yet
 

@@ -116,4 +116,4 @@ export {
   LinkedObjects, ObjectSet, Ontology, type AggregationType, type FetchPageOptions, type GroupBy,
   type OntologyObject, type OrderBy, type Page,
 } from "./ontologies/objects.js";
-export { andAll, toClause, type PropertyFilter, type Where, type WhereClause } from "./ontologies/where.js";
+export { andAll, not, orAll, toClause, type PropertyFilter, type Where, type WhereClause } from "./ontologies/where.js";
