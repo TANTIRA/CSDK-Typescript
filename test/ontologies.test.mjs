@@ -6,7 +6,7 @@ import { ok, stub } from "./stub.mjs";
 
 const O = "/api/v2/ontologies/my%20onto";
 
-test("where: OSDK 2.x object form -> the server's clause, with $not and flat and/or", () => {
+test("where: object form -> the server's clause, with $not and flat and/or", () => {
   assert.deepEqual(toClause({ total: { $gt: 1, $lte: 9 }, status: "open", note: null }), { type: "and", conditions: [
     { type: "gt", property: "total", value: 1 }, { type: "lte", property: "total", value: 9 },
     { type: "eq", property: "status", value: "open" }, { type: "isNull", property: "note", value: true }] });
@@ -20,9 +20,40 @@ test("where: OSDK 2.x object form -> the server's clause, with $not and flat and
     { type: "eq", property: "a", value: 1 }, { type: "eq", property: "b", value: 2 }] });
   assert.deepEqual(toClause({ id: { $startsWith: "o.1(" } }), { type: "regex", property: "id", value: "o\\.1\\([\\s\\S]*" });
   for (const [w, msg] of [[{ a: {} }, "{} has no operator"], [{ a: { $lt: undefined } }, "a.$lt is undefined"],
-    [{ a: { $isNull: 0 } }, "$isNull takes true or false"], [{ a: { $in: [1] } }, "$in is not supported"],
+    [{ a: { $isNull: 0 } }, "$isNull takes true or false"], [{ a: { $nin: [1] } }, "$nin is not supported"],
+    [{ a: { $in: [] } }, "$in needs at least one value"], [{ a: { $range: [1] } }, "$range takes [lo, hi]"],
     [{ $nope: 1 }, "$nope is not supported"], [{ at: new Date(0) }, "not a Date"]]) {
     assert.throws(() => toClause(w), (e) => e instanceof TypeError && e.message.includes(msg), msg);
+  }
+});
+
+test("where: $ne, $in, $range, $regex, nested $or and double $not (depth parity with the Python SDK)", () => {
+  const eq = (p, v) => ({ type: "eq", property: p, value: v });
+  assert.deepEqual(toClause({ a: { $ne: 1 } }), { type: "not", conditions: [eq("a", 1)] });
+  assert.deepEqual(toClause({ a: { $ne: null } }), { type: "not", conditions: [{ type: "isNull", property: "a", value: true }] });
+  assert.deepEqual(toClause({ a: { $in: [1, 2] } }), { type: "or", conditions: [eq("a", 1), eq("a", 2)] });
+  assert.deepEqual(toClause({ a: { $in: [1] } }), eq("a", 1));
+  assert.deepEqual(toClause({ a: { $range: [1, 5] }, b: { $regex: "x.*" } }), { type: "and", conditions: [
+    { type: "range", property: "a", value: [1, 5] }, { type: "regex", property: "b", value: "x.*" }] });
+  assert.deepEqual(toClause({ $or: [{ a: 1 }, { $or: [{ b: 2 }, { c: { $in: [3, 4] } }] }] }),
+    { type: "or", conditions: [eq("a", 1), eq("b", 2), eq("c", 3), eq("c", 4)] });
+  assert.deepEqual(toClause({ $or: [{ a: 1 }] }), eq("a", 1));
+  assert.deepEqual(toClause({ $not: { $not: { a: 1 } } }), eq("a", 1));
+  assert.deepEqual(toClause({ $not: { a: { $ne: 1 } } }), eq("a", 1));
+});
+
+test("whereClause ANDs in a raw server clause", async () => {
+  const s = await stub({ [`POST ${O}/objects/Order/search`]: ok({ data: [] }) });
+  try {
+    const set = new ConvergeClient({ hostname: s.base, token: "t" }).ontology("my onto").objects("Order")
+      .where({ a: 1 }).whereClause({ type: "range", property: "t", value: [1, 2] });
+    await set.fetchPage();
+    assert.deepEqual(s.seen[0].body.where, { type: "and", conditions: [
+      { type: "eq", property: "a", value: 1 }, { type: "range", property: "t", value: [1, 2] }] });
+    assert.deepEqual(set.clause, s.seen[0].body.where);
+    assert.throws(() => set.whereClause({ property: "x" }), TypeError);
+  } finally {
+    await s.close();
   }
 });
 

@@ -65,7 +65,7 @@ export class ObjectSet<T extends OntologyObject = OntologyObject> {
   }
 
   /** The wire where clause of this set, or undefined. */
-  get whereClause(): WhereClause | undefined {
+  get clause(): WhereClause | undefined {
     return this.#filter;
   }
 
@@ -75,6 +75,14 @@ export class ObjectSet<T extends OntologyObject = OntologyObject> {
 
   where(w: Where): ObjectSet<T> {
     return new ObjectSet(this.#o, this.#type, andAll([this.#filter, toClause(w)]), this.#order, this.#select);
+  }
+
+  /** AND in a clause already in the server's wire form (`{ type, property, value, conditions }`). */
+  whereClause(raw: WhereClause): ObjectSet<T> {
+    if (raw === null || typeof raw !== "object" || typeof raw.type !== "string") {
+      throw new TypeError("whereClause takes a { type, ... } clause");
+    }
+    return new ObjectSet(this.#o, this.#type, andAll([this.#filter, raw]), this.#order, this.#select);
   }
 
   /** One property: `{ total: "desc" }`. */
