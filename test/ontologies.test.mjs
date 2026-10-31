@@ -69,6 +69,7 @@ test("objects: search body, paging, fetchOne, linked, aggregate and count", asyn
     [`GET ${O}/objects/Order/order%2Fo1`]: ok({ $rid: "order/o1", orderId: "o1" }),
     [`GET ${O}/objects/Order/o1/links/placedBy`]: ok({ data: [{ $rid: "customer/c1" }], nextPageToken: null }),
     [`GET ${O}/objects/Order/o1/links/placedBy/c1`]: ok({ $rid: "customer/c1" }),
+    [`POST ${O}/objects/Order/nearestNeighbors`]: ok({ data: [], skipped: 0 }),
     [`POST ${O}/objects/Order/aggregate`]: ok({ data: [{ group: {}, metrics: [{ name: "count", value: 2 }] }] }),
   });
   try {
@@ -97,6 +98,11 @@ test("objects: search body, paging, fetchOne, linked, aggregate and count", asyn
     assert.deepEqual(s.seen.at(-1).body, { aggregation: { metrics: [{ type: "count" }, { type: "sum", field: "total", name: "t" }],
       where, group_by: [{ field: "placed", duration: 1, unit: "MONTHS" }, { field: "status", maxGroupCount: 3 }],
       order: { direction: "asc", metric: "t" } } });
+    await set.nearestNeighbors([1, 0.5], 3, "embedding");
+    assert.deepEqual(s.seen.at(-1).body, { property: "embedding", numNeighbors: 3,
+      query: { type: "vector", value: [1, 0.5] }, where });
+    await o.objects("Order").nearestNeighbors([1], 1, "embedding");
+    assert.deepEqual(s.seen.at(-1).body, { property: "embedding", numNeighbors: 1, query: { type: "vector", value: [1] } });
     assert.throws(() => o.objects("Order").orderBy({ a: "asc", b: "desc" }), TypeError);
     const e = await o.objects("Order").fetchOne("missing").catch((x) => x);
     assert.equal(e.status, 404);
