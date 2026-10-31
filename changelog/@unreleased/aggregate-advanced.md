@@ -1,0 +1,1 @@
+- `aggregateMetrics(metrics, { groupBy, order })`; time-bucket and maxGroupCount `GroupBy` entries.

@@ -92,6 +92,11 @@ test("objects: search body, paging, fetchOne, linked, aggregate and count", asyn
     assert.equal(s.seen[5].query, "?pageSize=100");
     assert.deepEqual(s.seen[7].body, { aggregation: { type: "count", where } });
     assert.deepEqual(s.seen[8].body, { aggregation: { type: "sum", field: "total", group_by: ["status", { field: "total", fixedWidth: 10 }] } });
+    await set.aggregateMetrics([{ type: "count" }, { type: "sum", field: "total", name: "t" }],
+      { groupBy: [{ field: "placed", duration: 1, unit: "MONTHS" }, { field: "status", maxGroupCount: 3 }], order: { metric: "t" } });
+    assert.deepEqual(s.seen.at(-1).body, { aggregation: { metrics: [{ type: "count" }, { type: "sum", field: "total", name: "t" }],
+      where, group_by: [{ field: "placed", duration: 1, unit: "MONTHS" }, { field: "status", maxGroupCount: 3 }],
+      order: { direction: "asc", metric: "t" } } });
     assert.throws(() => o.objects("Order").orderBy({ a: "asc", b: "desc" }), TypeError);
     const e = await o.objects("Order").fetchOne("missing").catch((x) => x);
     assert.equal(e.status, 404);

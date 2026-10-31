@@ -38,8 +38,22 @@ export type OrderBy = Record<string, "asc" | "desc">;
 /** count | sum | avg | min | max | exactDistinct | approximateDistinct. */
 export type AggregationType = "count" | "sum" | "avg" | "min" | "max" | "exactDistinct" | "approximateDistinct";
 
-/** A property, or `{ field, ranges: [[lo, hi], ...] }` / `{ field, fixedWidth }`. */
-export type GroupBy = string | { field: string; ranges?: [unknown, unknown][]; fixedWidth?: number };
+export type DurationUnit = "SECONDS" | "MINUTES" | "HOURS" | "DAYS" | "WEEKS" | "MONTHS" | "QUARTERS" | "YEARS";
+
+/** A property, a range or fixed-width bucket, a date/time bucket (UTC; weeks start on Monday;
+ * months, quarters and years follow the calendar), or the maxGroupCount largest exact groups. */
+export type GroupBy = string
+  | { field: string; ranges: [unknown, unknown][] }
+  | { field: string; fixedWidth: number }
+  | { field: string; duration: number; unit: DurationUnit }
+  | { field: string; maxGroupCount: number };
+
+export interface Metric {
+  type: AggregationType;
+  field?: string;
+  /** Default `<type>`, or `<type>_<field>`; names must be unique. */
+  name?: string;
+}
 
 /** The link routes take the bare primary key: "c1" from "c1" or from the $rid "customer/c1". */
 export function bareKey(primaryKey: string | number): string {
@@ -148,6 +162,15 @@ export class ObjectSet<T extends OntologyObject = OntologyObject> {
     if (this.#filter) agg.where = this.#filter;
     if (options.field !== undefined) agg.field = options.field;
     if (options.groupBy?.length) agg.group_by = [...options.groupBy];
+    return this.#o.request("POST", this.#path("/aggregate"), { aggregation: agg });
+  }
+
+  /** Several metrics (1 to 10) in one call, optionally ordering the groups by one of them (nulls last). */
+  aggregateMetrics(metrics: Metric[], options: { groupBy?: GroupBy[]; order?: { metric: string; direction?: "asc" | "desc" } } = {}): Promise<any> {
+    const agg: Record<string, unknown> = { metrics: metrics.map((m) => ({ ...m })) };
+    if (this.#filter) agg.where = this.#filter;
+    if (options.groupBy?.length) agg.group_by = [...options.groupBy];
+    if (options.order) agg.order = { direction: "asc", ...options.order };
     return this.#o.request("POST", this.#path("/aggregate"), { aggregation: agg });
   }
 
