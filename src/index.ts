@@ -16,6 +16,7 @@ import { Transport, type FetchLike } from "./core/transport.js";
 import { DatasetsClient, SqlClient } from "./datasets/client.js";
 import { action, batchAction, query } from "./ontologies/actions.js";
 import { Attachments } from "./ontologies/attachments.js";
+import { MediaClient } from "./ontologies/media.js";
 import { ObjectSet, Ontology, type OntologyObject } from "./ontologies/objects.js";
 
 export const VERSION = "0.1.0";
@@ -38,10 +39,12 @@ export interface ConvergeClientOptions {
 export class OntologyClient {
   readonly #o: Ontology;
   readonly attachments: Attachments;
+  readonly media: MediaClient;
 
   constructor(transport: Transport, ontologyRid: string) {
     this.#o = new Ontology(transport, ontologyRid);
     this.attachments = new Attachments(transport);
+    this.media = new MediaClient(this.#o);
   }
 
   objects<T extends OntologyObject = OntologyObject>(apiName: string): ObjectSet<T> {
@@ -112,6 +115,7 @@ export { DatasetsClient, SqlClient, SqlError, Transaction, type ReadTableOptions
 export { parseCsv, csvRecords } from "./datasets/csv.js";
 export { ActionMode, ReturnEditsMode, type ActionOptions, type ActionResult, type Parameters } from "./ontologies/actions.js";
 export { Attachments } from "./ontologies/attachments.js";
+export { Media, MediaClient, mediaReference, type MediaMetadata, type MediaReference } from "./ontologies/media.js";
 export {
   LinkedObjects, ObjectSet, Ontology, type AggregationType, type FetchPageOptions, type GroupBy,
   type OntologyObject, type OrderBy, type Page,
